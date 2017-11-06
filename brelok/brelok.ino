@@ -61,17 +61,11 @@ void setup(){
     randomSeed(analogRead(PA0));
     
     uint16_t status;
-    flash.init();
     flash.print_conf();
+    flash.init();
     status = flash.init_key(new_key, KEY_SIZE);
     if (status == 0) radio.change_key(new_key);
-    //EEPROM.PageBase0 = 0x801F000;
-    //EEPROM.PageBase1 = 0x801F800;
-    //EEPROM.PageSize  = 0x400;
-    //EEPROM.format();
-    //EEPROM.write(0x10, data);
-    //status = EEPROM.read(0x10, &data);
-    //Log.trace("Status: %X, Data: %x"CR, status, data);
+    
 }
 
 void loop(){
@@ -93,6 +87,7 @@ void seans(void){
      
     blinker(1, 100, 1);
     //---------------------------------------------------------Handshake----------------------------------------//
+    
     Log.trace("--%s--"CR, syn);
     res = radio.send_data(package, syn, sizeof(syn)); 
     if (res != true){
@@ -160,7 +155,7 @@ void seans(void){
 
     uint16_t status;
     Log.notice("Save new key to FLASH"CR);
-    status = flash.write_key(new_key, KEY_SIZE);
+    status = flash.save_key(new_key, KEY_SIZE);
     if (status != 0){
         Log.error("Impossible to save new key"CR);
         return;
@@ -173,6 +168,7 @@ void seans(void){
 
     Log.notice("Successfully!"CR);
     blinker(6, 75, 75);
+    
   
 }
 

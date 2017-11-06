@@ -36,7 +36,7 @@ void setup(){
    
     Serial1.begin(9600);
     while(!Serial1 && !Serial1.available()){}
-    Log.begin   (LOG_LEVEL_NOTICE, &Serial1);
+    Log.begin   (LOG_LEVEL_VERBOSE, &Serial1);
     Log.notice(F("RF24 Receive start" CR));
   
     SPI.begin();
@@ -56,8 +56,8 @@ void setup(){
     randomSeed(analogRead(PA0));
 
     uint16_t status;
-    flash.init();
     flash.print_conf();
+    flash.init();
     status = flash.init_key(new_key, KEY_SIZE);
     if (status == 0) radio.change_key(new_key);
 
@@ -142,7 +142,7 @@ void seans(void){
     
     uint16_t status;
     Log.notice("Save new key to FLASH"CR);
-    status = flash.write_key(new_key, KEY_SIZE);
+    status = flash.save_key(new_key, KEY_SIZE);
     if (status != 0){
         Log.error("Impossible to save new key"CR);
         return;
