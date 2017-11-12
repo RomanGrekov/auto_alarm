@@ -29,8 +29,12 @@ void seans(void);
 
 unsigned int delay_i = 3;
 
-unsigned char new_key[KEY_SIZE];
-EepromCli flash(Log);
+uint8_t new_key[KEY_SIZE];
+unsigned char data[DATA_SIZE];
+EepromCli eeprom(Log, PB8, PB9);
+
+//template<typename T> struct print_type;
+//template<int T> struct iint;
 
 void setup(){
    
@@ -45,22 +49,20 @@ void setup(){
 
     // Setup and configure rf radio
     radio.initialise();
-    
     radio.init_rx();
 
-    // Dump the configuration of the rf unit for debugging
-    //radio.printDetails();
-
     pinMode(LED1_PIN, OUTPUT);
-
     randomSeed(analogRead(PA0));
-
-    uint16_t status;
-    flash.print_conf();
-    flash.init();
-    status = flash.init_key(new_key, KEY_SIZE);
-    if (status == 0) radio.change_key(new_key);
-
+    
+    uint8_t status;
+    bool res = false;
+    //eeprom.set_key_unsaved();
+    status = eeprom.is_key_saved(&res);
+    if (status == 0 && res == true){
+      status = eeprom.read_key(new_key);
+      if (status == 0)radio.change_key(new_key);
+    }
+    else Log.trace("Key is absent in eeprom"CR);
 }
 
 void loop(){
@@ -70,11 +72,10 @@ void loop(){
 
 void seans(void){
     bool res = false;
-    NRFClient::package package;
 
     //---------------------------------------------------------Handshake----------------------------------------//
     Log.trace("Waiting for %s..."CR, syn);  
-    res = radio.receive_data(package, syn, sizeof(syn), 0);
+    res = radio.receive_expected(syn, sizeof(syn), 0);
     if ( res != true){
         Log.error("Failed to receive SYN"CR);
         blinker(1, 500, 1);
@@ -82,7 +83,7 @@ void seans(void){
     }
 
     Log.trace("--%s--"CR, ack);
-    res = radio.send_data(package, ack, sizeof(ack)); 
+    res = radio.send(ack, sizeof(ack)); 
     if (res != true){
       Log.error("Failed to send ACK"CR);
       blinker(1, 500, 1);
@@ -90,7 +91,7 @@ void seans(void){
     }
 
     Log.trace("Waiting for %s..."CR, synack);  
-    res = radio.receive_data(package, synack, sizeof(synack), 800);
+    res = radio.receive_expected(synack, sizeof(synack), 1500);
     if ( res != true){
         Log.error("Failed to receive %s"CR, synack);
         blinker(1, 500, 1);
@@ -105,7 +106,7 @@ void seans(void){
     //  new_key[i] = (i+30);
     //}
     Log.trace("Sending new key..."CR);  
-    res = radio.send_data(package, new_key, KEY_SIZE); 
+    res = radio.send(new_key, KEY_SIZE); 
     if (res != true){
       Log.error("Failed to send new key"CR);
       blinker(1, 500, 1);
@@ -113,7 +114,7 @@ void seans(void){
     }
 
     Log.trace("Waiting for %s..."CR, synack);  
-    res = radio.receive_data(package, synack, sizeof(synack), 1200);
+    res = radio.receive_expected(synack, sizeof(synack), 2000);
     if ( res != true){
         Log.error("Failed to receive %s"CR, synack);
         blinker(1, 500, 1);
@@ -124,30 +125,30 @@ void seans(void){
     radio.change_key(new_key);
 
     Log.trace("Receiving session id..."CR);  
-    res = radio.receive(package, 1500);
+    res = radio.receive(data, 2500);
     if ( res != true){
         Log.error("Failed to receive session id"CR);
         blinker(1, 500, 1);
         return;
     }
-    Log.notice("Session id: %y"CR, package.data);
+    Log.notice("Session id: %y"CR, data);
 
     Log.trace("--%s--"CR, synack);
-    res = radio.send_data(package, synack, sizeof(synack)); 
+    res = radio.send(synack, sizeof(synack)); 
     if (res != true){
       Log.error("Failed to send SYN"CR);
       blinker(1, 500, 1);
       return;
     }
     
-    uint16_t status;
+    uint8_t status;
     Log.notice("Save new key to FLASH"CR);
-    status = flash.save_key(new_key, KEY_SIZE);
+    status = eeprom.write_key(new_key);
     if (status != 0){
         Log.error("Impossible to save new key"CR);
         return;
     }
-    status = flash.set_key_saved();
+    status = eeprom.set_key_saved();
     if (status != 0){
         Log.error("Impossible to save key changed status flag"CR);
         return;
